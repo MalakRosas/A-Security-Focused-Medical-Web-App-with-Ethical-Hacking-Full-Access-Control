@@ -1,8 +1,9 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
+import { encrypt, decrypt } from '../utils/encryption.js';
 
 const PatientRecord = sequelize.define('PatientRecord', {
-  id: { 
+  id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
@@ -11,7 +12,7 @@ const PatientRecord = sequelize.define('PatientRecord', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'Users', 
+      model: 'Users',
       key: 'id'
     }
   },
@@ -24,12 +25,17 @@ const PatientRecord = sequelize.define('PatientRecord', {
     }
   },
   diagnoses: {
-    type: DataTypes.ARRAY(DataTypes.STRING),
+    type: DataTypes.TEXT,
     allowNull: true
   },
   notes: {
-    type: DataTypes.ARRAY(DataTypes.STRING),
+    type: DataTypes.TEXT,
     allowNull: true
+  },
+  status: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'active'
   },
   createdAt: {
     type: DataTypes.DATE,
@@ -37,7 +43,41 @@ const PatientRecord = sequelize.define('PatientRecord', {
   }
 }, {
   timestamps: false,
-  tableName: 'PatientRecords'
+  tableName: 'PatientRecords',
+  hooks: {
+    beforeCreate(record) {
+      if (record.diagnoses) {
+        record.diagnoses = encrypt(record.diagnoses);
+      }
+      if (record.notes) {
+        record.notes = encrypt(record.notes);
+      }
+    },
+    beforeUpdate(record) {
+      if (record.diagnoses) {
+        record.diagnoses = encrypt(record.diagnoses);
+      }
+      if (record.notes) {
+        record.notes = encrypt(record.notes);
+      }
+    },
+    afterFind(result) {
+      const decryptField = (entry) => {
+        if (entry?.diagnoses) {
+          entry.diagnoses = decrypt(entry.diagnoses);
+        }
+        if (entry?.notes) {
+          entry.notes = decrypt(entry.notes);
+        }
+      };
+
+      if (Array.isArray(result)) {
+        result.forEach(decryptField);
+      } else {
+        decryptField(result);
+      }
+    }
+  }
 });
 
 export default PatientRecord;

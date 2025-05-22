@@ -9,7 +9,7 @@ router.use(authenticateToken, authorizeRoles('Patient'));
 
 router.post('/appointments', async (req, res) => {
   try {
-    const patientId = req.user.id;
+    const patientId = req.user.userId;
     const patientUsername = req.user.username;
     const { doctorUsername, dateTime, reason } = req.body;
 
@@ -39,7 +39,7 @@ router.post('/appointments', async (req, res) => {
 
 router.get('/profile', async (req, res) => {
   try {
-    const patientId = req.user.id;
+    const patientId = req.user.userId;
 
     const user = await User.findByPk(patientId, {
       attributes: { exclude: ['password', 'twoFASecret'] }
@@ -70,7 +70,7 @@ router.get('/profile', async (req, res) => {
 // View prescriptions (with doctor info)
 router.get('/prescriptions', async (req, res) => {
   try {
-    const patientId = req.user.id;
+    const patientId = req.user.userId;
 
     const records = await PatientRecord.findAll({
       where: { patientId },
@@ -112,7 +112,7 @@ router.get('/prescriptions', async (req, res) => {
 
 router.put('/profile', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { email, phone, address, oldPassword, newPassword } = req.body;
     console.log('Old password from request:', oldPassword);
 
@@ -155,15 +155,26 @@ router.put('/profile', async (req, res) => {
 
 router.delete('/appointments/:appointmentId', async (req, res) => {
   try {
-    const patientId = req.user.id;
+    // Ensure user context is present
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ message: 'Unauthorized: Missing user context' });
+    }
+
+    const patientId = req.user.userId;;
     const { appointmentId } = req.params;
 
     const appointment = await Appointment.findByPk(appointmentId);
+
     if (!appointment) {
       return res.status(404).json({ message: 'Appointment not found' });
     }
 
-    if (appointment.patientId !== patientId) {
+    // Debugging logs
+    console.log('Authenticated user ID:', patientId);
+    console.log('Appointment patient ID:', appointment.patientId);
+
+    // Use String comparison to prevent type mismatch errors
+    if (String(appointment.patientId) !== String(patientId)) {
       return res.status(403).json({ message: 'Access denied: Cannot delete others\' appointments' });
     }
 
@@ -175,5 +186,6 @@ router.delete('/appointments/:appointmentId', async (req, res) => {
     res.status(500).json({ message: 'Server error canceling appointment' });
   }
 });
+
 
 export default router;

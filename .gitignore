@@ -15,3 +15,6 @@ npm-debug.log*
 # Build output
 dist/
 build/
+
+# SQL setup script (local only)
+secure_health_access_control.sql

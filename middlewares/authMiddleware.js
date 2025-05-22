@@ -1,26 +1,41 @@
 import jwt from 'jsonwebtoken';
 
 export function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.sendStatus(401);
+const authHeader = req.headers.authorization || req.cookies.token;
+  let token;
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;  //  // user will have .id, not ._id , user info decoded from token, including role
-    next();//Calls the next middleware or route handler in the Express pipeline.
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  }
 
-  });
+  if (!token) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+
+try {
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  console.log('Decoded JWT payload:', decoded);
+  req.user = decoded; 
+  req.userId = decoded.userId;
+  next();
+} catch (err) {
+  return res.status(401).json({ message: 'Invalid token' });
 }
+
+};
 
 export function authorizeRoles(...allowedRoles) {
   return (req, res, next) => {
-    if (!allowedRoles.includes(req.user.role)) {/*If the user's role (extracted from the decoded token in req.user.role) is not in the list of allowed roles, respond with 403 Forbidden and a message "Access denied".*/
+    const userRole = req.user.userRole;  // <-- use userRole, not role
+    if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({ message: 'Access denied' });
     }
     next();
   };
 }
+
 
 
 

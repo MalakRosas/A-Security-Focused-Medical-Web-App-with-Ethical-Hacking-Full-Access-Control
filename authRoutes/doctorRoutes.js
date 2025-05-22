@@ -8,23 +8,27 @@ router.use(authenticateToken, authorizeRoles('Doctor'));
 
 router.post('/records/:patientId', async (req, res) => {
   try {
-    const doctorId = req.user.id;
+    const doctorId = req.user.userId; 
     const patientId = req.params.patientId;
     const { diagnosis, treatmentNotes, prescription } = req.body;
 
+    // Validate patient existence and role
     const patient = await User.findByPk(patientId);
     if (!patient || patient.role !== 'Patient') {
       return res.status(404).json({ message: 'Patient not found or not a valid patient role' });
     }
 
-    const diagnosesArray = Array.isArray(diagnosis) ? diagnosis : [diagnosis];
-    const notesArray = Array.isArray(treatmentNotes) ? treatmentNotes : [treatmentNotes];
+    // diagnosis and treatmentNotes are expected to be strings now
+    if (typeof diagnosis !== 'string' || typeof treatmentNotes !== 'string') {
+      return res.status(400).json({ message: 'Diagnosis and treatment notes must be strings' });
+    }
 
+    // Create the new PatientRecord
     const newRecord = await PatientRecord.create({
       doctorId,
       patientId,
-      diagnoses: diagnosesArray,
-      notes: notesArray
+      diagnoses: diagnosis,      // string, will be encrypted in model hook
+      notes: treatmentNotes      // string, will be encrypted in model hook
     });
 
     let savedPrescription = null;
@@ -50,11 +54,12 @@ router.post('/records/:patientId', async (req, res) => {
   }
 });
 
+
 // View records of patients assigned to the doctor
 
 router.get('/patients/records', async (req, res) => {
   try {
-    const doctorId = req.user.id;
+    const doctorId = req.user.userId; 
 
     const records = await PatientRecord.findAll({
       where: { doctorId },
@@ -77,22 +82,28 @@ router.get('/patients/records', async (req, res) => {
   }
 });
 
- // UPDATE: Modify treatment notes in an existing record
+// UPDATE: Modify treatment notes in an existing record 
 router.put('/records/:recordId', async (req, res) => {
   try {
-    const doctorId = req.user.id;
+    const doctorId = String(req.user.userId); // ensure it's a string
     const recordId = req.params.recordId;
     let { treatmentNotes } = req.body;
 
     const record = await PatientRecord.findByPk(recordId);
-    if (!record) return res.status(404).json({ message: 'Record not found' });
+    if (!record) {
+      return res.status(404).json({ message: 'Record not found' });
+    }
 
-    if (record.doctorId !== doctorId) {
+    if (String(record.doctorId) !== doctorId) {
       return res.status(403).json({ message: 'Access denied: Not your record' });
     }
 
-    treatmentNotes = Array.isArray(treatmentNotes) ? treatmentNotes : [treatmentNotes];
-    record.notes = treatmentNotes;
+    // Validate that treatmentNotes is a string
+    if (typeof treatmentNotes !== 'string') {
+      return res.status(400).json({ message: 'Treatment notes must be a string' });
+    }
+
+    record.notes = treatmentNotes; // directly assign string
 
     await record.save();
 
@@ -103,20 +114,23 @@ router.put('/records/:recordId', async (req, res) => {
   }
 });
 
+
  // DELETE: Remove draft record (only if isDraft = true)
 router.delete('/records/:recordId', async (req, res) => {
   try {
-    const doctorId = req.user.id;
+    const doctorId = String(req.user.userId); // Ensure string comparison
     const recordId = req.params.recordId;
 
     const record = await PatientRecord.findByPk(recordId);
-    if (!record) return res.status(404).json({ message: 'Record not found' });
+    if (!record) {
+      return res.status(404).json({ message: 'Record not found' });
+    }
 
-    if (record.doctorId !== doctorId) {
+    if (String(record.doctorId) !== doctorId) {
       return res.status(403).json({ message: 'Access denied: Not your record' });
     }
 
-    if (!record.isDraft) {
+    if (!record.status) {
       return res.status(400).json({ message: 'Only draft records can be deleted' });
     }
 

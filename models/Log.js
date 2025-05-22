@@ -10,7 +10,7 @@ const Log = sequelize.define('Log', {
   },
   userId: {
     type: DataTypes.INTEGER,
-    allowNull: true,  // allow null if log can be system-generated without a user
+    allowNull: true,  
     references: {
       model: 'Users',
       key: 'id'
