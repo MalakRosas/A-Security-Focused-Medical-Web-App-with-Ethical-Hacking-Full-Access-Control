@@ -37,6 +37,29 @@ router.post('/appointments', async (req, res) => {
   }
 });
 
+router.get('/appointments', async (req, res) => {
+  try {
+    const patientId =req.user.userId;
+ 
+    const appointments = await Appointment.findAll({
+      where: { patientId },
+      order: [['dateTime', 'ASC']] // Optional: sort by upcoming first
+    });
+ 
+    if (appointments.length === 0) {
+      return res.status(404).json({ message: 'No appointments found for this patient' });
+    }
+ 
+    res.status(200).json({
+      message: 'Appointments retrieved successfully',
+      appointments
+    });
+  } catch (err) {
+    console.error('Error retrieving appointments:', err);
+    res.status(500).json({ message: 'Server error retrieving appointments' });
+  }
+});
+ 
 router.get('/profile', async (req, res) => {
   try {
     const patientId = req.user.userId;

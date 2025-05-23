@@ -8,10 +8,11 @@ import adminRoutes from './authRoutes/adminRoutes.js';
 import logs from './authRoutes/logs.js';
 import { signup, login, verify2FA, logout, disableCache} from './controllers/authController.js';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(cookieParser());
 
@@ -26,7 +27,7 @@ sequelize.authenticate()
   .catch(err => {
     console.error('Sequelize connection error:', err);
   });
-
+app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
 app.get('/', async (req, res) => {
   res.send('Welcome to Secure Health API');

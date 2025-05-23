@@ -5,30 +5,26 @@ import { PatientRecord, Prescription, User } from '../models/associations.js';
 const router = express.Router();
 
 router.use(authenticateToken, authorizeRoles('Doctor'));
-
 router.post('/records/:patientId', async (req, res) => {
   try {
     const doctorId = req.user.userId; 
     const patientId = req.params.patientId;
     const { diagnosis, treatmentNotes, prescription } = req.body;
 
-    // Validate patient existence and role
     const patient = await User.findByPk(patientId);
     if (!patient || patient.role !== 'Patient') {
       return res.status(404).json({ message: 'Patient not found or not a valid patient role' });
     }
 
-    // diagnosis and treatmentNotes are expected to be strings now
     if (typeof diagnosis !== 'string' || typeof treatmentNotes !== 'string') {
       return res.status(400).json({ message: 'Diagnosis and treatment notes must be strings' });
     }
 
-    // Create the new PatientRecord
     const newRecord = await PatientRecord.create({
       doctorId,
       patientId,
-      diagnoses: diagnosis,      // string, will be encrypted in model hook
-      notes: treatmentNotes      // string, will be encrypted in model hook
+      diagnoses: diagnosis,      
+      notes: treatmentNotes     
     });
 
     let savedPrescription = null;
@@ -54,9 +50,6 @@ router.post('/records/:patientId', async (req, res) => {
   }
 });
 
-
-// View records of patients assigned to the doctor
-
 router.get('/patients/records', async (req, res) => {
   try {
     const doctorId = req.user.userId; 
@@ -81,11 +74,10 @@ router.get('/patients/records', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
-// UPDATE: Modify treatment notes in an existing record 
+ 
 router.put('/records/:recordId', async (req, res) => {
   try {
-    const doctorId = String(req.user.userId); // ensure it's a string
+    const doctorId = String(req.user.userId);
     const recordId = req.params.recordId;
     let { treatmentNotes } = req.body;
 
@@ -98,12 +90,11 @@ router.put('/records/:recordId', async (req, res) => {
       return res.status(403).json({ message: 'Access denied: Not your record' });
     }
 
-    // Validate that treatmentNotes is a string
     if (typeof treatmentNotes !== 'string') {
       return res.status(400).json({ message: 'Treatment notes must be a string' });
     }
 
-    record.notes = treatmentNotes; // directly assign string
+    record.notes = treatmentNotes; 
 
     await record.save();
 
@@ -114,11 +105,9 @@ router.put('/records/:recordId', async (req, res) => {
   }
 });
 
-
- // DELETE: Remove draft record (only if isDraft = true)
 router.delete('/records/:recordId', async (req, res) => {
   try {
-    const doctorId = String(req.user.userId); // Ensure string comparison
+    const doctorId = String(req.user.userId); 
     const recordId = req.params.recordId;
 
     const record = await PatientRecord.findByPk(recordId);
@@ -141,5 +130,19 @@ router.delete('/records/:recordId', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+// Get all patients
+router.get('/patients', async (req, res) => {
+  try {
+    const patients = await User.findAll({
+      where: { role: 'Patient' },
+      attributes: ['id', 'username', 'email'],
+    });
+    res.json({ patients });
+  } catch (error) {
+    console.error('Error fetching patients:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 
 export default router;
